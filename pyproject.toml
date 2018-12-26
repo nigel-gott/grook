@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "grook"
 version = "0.1.0"
-description = ""
+description = "Group Book Web App"
 authors = ["Nigel Gott <nigel.gott@gmail.com>"]
 
 [tool.poetry.dependencies]
@@ -12,3 +12,6 @@ python = "^3.6"
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
+
+[tool.poetry.scripts]
+grook = 'grook.server:main'
