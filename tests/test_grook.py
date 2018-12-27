@@ -22,7 +22,7 @@ def test_app(client, dynamodb):
             "WriteCapacityUnits": 5
         }
     )
-    table.put_item(Item={'number':1, 'title':'My Title', 'contents':'Something'})
+    table.put_item(Item={'number': 1, 'title': 'My Title', 'contents': 'Something'})
     response = client.get(url_for('hello'))
     assert response.status_code == 200
     assert response.data.decode('utf-8') == '<h2> Chapter 1 : My Title </h2> <p> Something </p>'
