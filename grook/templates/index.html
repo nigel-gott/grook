@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block header %}
+<h1>{% block title %}Grook{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+<div>
+    <h1> The Book!</h1>
+    {% for chapter in chapters %}
+    <div>
+        <h2>{{ chapter.title }}</h2>
+        <p>
+            {{ chapter.contents }}
+        </p>
+    </div>
+    {% endfor %}
+</div>
+<div>
+    <h1>Proposed Sentences!</h1>
+    {% for sentence in sentences %}
+    <div>
+        <h3>Number of votes: {{ sentence.votes }}</h3>
+        <form action="{{ url_for('vote', proposed_time=sentence.proposed_time) }}" method="POST">
+            <button>Vote for this sentence</button>
+        </form>
+        <p>
+            {{ sentence.sentence }}
+        </p>
+    </div>
+    {% endfor %}
+</div>
+<div>
+    <h1>Forms!</h1>
+    <form action="{{ url_for('add') }}" method="POST">
+        <label for="sentence">Propose a new sentence!</label>
+        <input name="sentence" id="sentence" value="Enter your proposed sentence here">
+        <button>Add new sentence</button>
+    </form>
+</div>
+<div>
+    <form action="{{ url_for('trigger') }}" method="POST">
+        <button>Trigger</button>
+    </form>
+</div>
+{% endblock %}
