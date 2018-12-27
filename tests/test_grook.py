@@ -1,5 +1,6 @@
-from grook import __version__
+import pytest
+from flask import url_for
 
 
-def test_version():
-    assert __version__ == '0.1.0'
+def test_app(client):
+    assert client.get(url_for('hello')).status_code == 200

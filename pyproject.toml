@@ -9,9 +9,8 @@ python = "^3.6"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.0"
+pytest-flask = "^0.14.0"
 
-[tool.poetry.scripts]
-grook = 'grook.server:main'
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"

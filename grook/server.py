@@ -1,6 +1,18 @@
+﻿from flask import Flask
 
-def main():
-    print('Hello World!')
+
+def create_app():
+
+    app = Flask(__name__)
+
+    @app.route("/")
+    def hello():
+        return "Hello World!"
+
+    return app
+
 
 if __name__ == '__main__':
-    main()
+    app = create_app()
+
+
