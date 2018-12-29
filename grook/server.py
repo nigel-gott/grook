@@ -1,53 +1,10 @@
-﻿import datetime
-from time import sleep
+﻿import time
+from decimal import Decimal
 
 import boto3
 from boto3.dynamodb.conditions import Key
 from flask import Flask, render_template, url_for, request
 from werkzeug.utils import redirect
-
-
-def delete_sentences():
-    dynamodb = boto3.resource('dynamodb', region_name='eu-west-1')
-    dynamodb_client = boto3.client('dynamodb', region_name='eu-west-1')
-
-    proposed_sentences = dynamodb.Table('proposed_sentences')
-    proposed_sentences.delete()
-    while 'proposed_sentences' in dynamodb_client.list_tables()['TableNames']:
-        print('Waiting for chapters to be deleted!')
-        sleep(1)
-    create_table()
-
-
-def create_table():
-    dynamodb = boto3.resource('dynamodb', region_name='eu-west-1')
-    dynamodb.create_table(
-        TableName='proposed_sentences',
-        KeySchema=[
-            {
-                'AttributeName': 'book_name',
-                'KeyType': 'HASH'
-            },
-            {
-                'AttributeName': 'proposed_time',
-                'KeyType': 'RANGE'
-            }
-        ],
-        AttributeDefinitions=[
-            {
-                'AttributeName': 'book_name',
-                'AttributeType': 'S'
-            },
-            {
-                'AttributeName': 'proposed_time',
-                'AttributeType': 'S'
-            }
-        ],
-        ProvisionedThroughput={
-            "ReadCapacityUnits": 5,
-            "WriteCapacityUnits": 5
-        }
-    )
 
 
 def create_app():
@@ -57,24 +14,45 @@ def create_app():
     def index():
         dynamodb = boto3.resource('dynamodb', region_name='eu-west-1')
         chapters_table = dynamodb.Table('chapters')
+        triggers = dynamodb.Table('triggers')
+        try:
+            last_trigger = triggers.get_item(Key={'key': 'latest'})['Item']
+        except Exception:
+            print("use zero why")
+            last_trigger = {
+                'key': 'latest',
+                'time': Decimal(0)
+            }
         sentences_table = dynamodb.Table('proposed_sentences')
+        sentences = sentences_table.query(
+            KeyConditionExpression=Key('proposed_time').gt(last_trigger['time']) & Key('book_name').eq('main'))[
+            'Items']
+        print(sentences)
+        print(last_trigger)
         chapters = chapters_table.query(KeyConditionExpression=Key('book_name').eq('main'))['Items']
-        for i in range(10):
-            try:
-                sentences = sentences_table.scan()['Items']
-            except Exception:
-                sleep(1)
-                pass
         return render_template('index.html', chapters=chapters, sentences=sentences)
 
     @app.route("/trigger", methods=['POST'])
     def trigger():
         dynamodb = boto3.resource('dynamodb', region_name='eu-west-1')
         chapters_table = dynamodb.Table('chapters')
+        triggers = dynamodb.Table('triggers')
+        try:
+            last_trigger = triggers.get_item(Key={'key': 'latest'})['Item']
+        except Exception:
+            last_trigger = {
+                'key': 'latest',
+                'time': Decimal(0)
+            }
         sentences_table = dynamodb.Table('proposed_sentences')
+        sentences = sentences_table.query(
+            KeyConditionExpression=Key('proposed_time').gt(last_trigger['time']) & Key('book_name').eq('main'))[
+            'Items']
+        last_trigger['time'] = int(time.time())
+        triggers.put_item(Item=last_trigger)
+
         chapters = chapters_table.query(KeyConditionExpression=Key('book_name').eq('main'), ScanIndexForward=False)[
             'Items']
-        sentences = sentences_table.scan()['Items']
         if sentences:
             best = sentences[0]
             for sentence in sentences:
@@ -105,8 +83,6 @@ def create_app():
 
                 chapters_table.put_item(Item=latest)
 
-            delete_sentences()
-
         return redirect(url_for('index'))
 
     @app.route("/add", methods=['POST'])
@@ -114,11 +90,13 @@ def create_app():
         dynamodb = boto3.resource('dynamodb', region_name='eu-west-1')
         sentences_table = dynamodb.Table('proposed_sentences')
 
-        proposed_time = datetime.datetime.now().strftime("%Y:%m:%dT%H:%M:%S:%f")
+        proposed_time = int(time.time())
 
+        ttl = proposed_time + 60 * 30
         sentences_table.put_item(Item={
             'book_name': 'main',
-            'proposed_time': proposed_time,
+            'proposed_time': Decimal(proposed_time),
+            'ttl': Decimal(ttl),
             'votes': 0,
             'sentence': request.form['sentence']
         })
@@ -127,11 +105,12 @@ def create_app():
 
     @app.route("/vote/<proposed_time>", methods=['POST'])
     def vote(proposed_time):
+        decimal_proposed_time = Decimal(proposed_time)
         dynamodb = boto3.resource('dynamodb', region_name='eu-west-1')
         sentences_table = dynamodb.Table('proposed_sentences')
-        sentence = sentences_table.get_item(Key={'proposed_time': proposed_time, 'book_name': 'main'})['Item']
+        sentence = sentences_table.get_item(Key={'proposed_time': decimal_proposed_time, 'book_name': 'main'})['Item']
         sentences_table.put_item(Item={
-            'proposed_time': proposed_time,
+            'proposed_time': decimal_proposed_time,
             'book_name': 'main',
             'votes': sentence['votes'] + 1,
             'sentence': sentence['sentence']
